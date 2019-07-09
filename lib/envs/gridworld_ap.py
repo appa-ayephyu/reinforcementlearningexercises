@@ -26,7 +26,8 @@ class GridworldEnv(discrete.DiscreteEnv):
 
     metadata = {'render.modes': ['human', 'ansi']}
 
-    def __init__(self, shape=[4,4]):
+
+    def __init__(self, shape=[64,64]):
         if not isinstance(shape, (list, tuple)) or not len(shape) == 2:
             raise ValueError('shape argument must be a list/tuple of length 2')
 
@@ -34,6 +35,8 @@ class GridworldEnv(discrete.DiscreteEnv):
 
         nS = np.prod(shape)
         nA = 4
+        self.t1=0
+        self.t2=0
 
         MAX_Y = shape[0]
         MAX_X = shape[1]
@@ -45,10 +48,20 @@ class GridworldEnv(discrete.DiscreteEnv):
         while not it.finished:
             s = it.iterindex
             y, x = it.multi_index
+
             # P[s][a] = (prob, next_state, reward, is_done)
             P[s] = {a : [] for a in range(nA)}
 
-            is_done = lambda s: s == 0 or s == (nS - 1)
+            #is_done = lambda s: s == 0 or s == (nS - 1)
+            def is_done(s):
+                if(s==0):
+                    self.t1=1
+                if(s==nS-1):
+                    self.t2=1
+                if(self.t1==1 and self.t2==1):
+                    return True
+                return False
+
             reward = 0.0 if is_done(s) else -1.0
 
             # We're stuck in a terminal state
@@ -79,6 +92,7 @@ class GridworldEnv(discrete.DiscreteEnv):
 
         super(GridworldEnv, self).__init__(nS, nA, P, isd)
 
+
     def render(self,mode='human', close=False):
         self._render(mode, close)
 
@@ -104,7 +118,7 @@ class GridworldEnv(discrete.DiscreteEnv):
 
             if self.s == s:
                 output = " x "
-            elif s == 0 or s == self.nS - 1:
+            elif (s == 0) or (s == self.nS - 1):
                 output = " T "
             else:
                 output = " o "
@@ -113,6 +127,12 @@ class GridworldEnv(discrete.DiscreteEnv):
                 output = output.lstrip()
             if x == self.shape[1] - 1:
                 output = output.rstrip()
+
+            if self.s ==0:
+                self.t1=1
+            
+            if self.s == self.nS -1:
+                self.t2=1
 
             outfile.write(output)
 

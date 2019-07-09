@@ -1,13 +1,15 @@
 import numpy as np
 import sys
+import random
 from gym.envs.toy_text import discrete
+import random
 
 UP = 0
 RIGHT = 1
 DOWN = 2
 LEFT =3
 
-class CliffWalkingEnv(discrete.DiscreteEnv):
+class GridworldEnv(discrete.DiscreteEnv):
     metadata = {'render.modes':['human', 'ansi']}
     
     
@@ -21,26 +23,66 @@ class CliffWalkingEnv(discrete.DiscreteEnv):
         return coord
     
     def _calculate_transition_prob(self, current, delta):
+        nS = np.prod(self.shape)
         new_position = np.array(current) + np.array(delta)
         new_position = self._limit_coordinates(new_position).astype(int)
         new_state = np.ravel_multi_index(tuple(new_position), self.shape)
-        reward = -100.0 if self._cliff[tuple(new_position)] else -1.0
-        is_done = self._cliff[tuple(new_position)] or (tuple(new_position) == (3,11))
-
         
+        
+        #for i in range(0,3):
+        #    if new_state==self.target[i]:
+        #        self.t[i]=1
+        reward = -3.0 + sum(self.t)
+
+        is_done = all(tar ==1 for tar in self.t)
+        #print(self.t)
 
         return [(1.0, new_state, reward, is_done)]
+
+    def reset(self):
+        self.t = [0,0,0]
+        self.reward=0
+        return self.s
+
+    def step(self, a):
+        nS = np.prod(self.shape)
+        transitions = self.P[self.s][a]
+        #i = categorical_sample([t[0] for t in transitions], self.np_random)
+        p,s,r,d = transitions[0]
+        '''
+        self.target[0] = random.randint(-1,nS-1)
+        self.target[1] = random.randint(-1,nS-1)
+        self.target[2] = random.randint(-1,nS-1)
+        '''
+        self.target[0] = nS-1 #if self.target[0]==nS-1 else self.target[0]+1
+        self.target[1] = 0 #self.target[1]=7 if self.target[1]==14 else  self.target[1]+1 
+        self.target[2] = 0 #if self.target[2]==0 else self.target[2]-1
+        '''
+        self.target[0] = nS-1 if self.target[0]==nS-1 else self.target[0]+1
+        self.target[1] = 17 if self.target[1]+32>nS-1 else  self.target[1]+32 
+        self.target[2] = 0 if self.target[2]==0 else self.target[2]-1
+        '''
+        #print(self.target)
+        for i in range(0,3):
+            if s==self.target[i]:
+                self.t[i]=1
+        d = all(tar ==1 for tar in self.t)
+        #r = 0.0 if d else -1.0
+        r = -3.0 + sum(self.t)
+        #d = all(tar ==1 for tar in self.t)
+        self.s = s
+        self.lastaction = a
+        return (s, r, d, {"prob" : p})
     
     def __init__(self):
-        self.shape = (4,12)
+        self.shape = (4,2)
         
         nS = np.prod(self.shape) #number of states
         nA = 4 #number of actions
-        
-        #cliff location
-        self.cliff_no = 2
-        self._cliff = np.zeros(self.shape, dtype = np.bool)
-        self._cliff[0:2,6] = True
+
+        self.t = [0,0,0]
+
+        self.target = [1,15,nS-1]
         
         #calculate transistion probabilities
         P = {}
@@ -57,7 +99,7 @@ class CliffWalkingEnv(discrete.DiscreteEnv):
         isd = np.zeros(nS)
         isd[np.ravel_multi_index((3,0) , self.shape)] = 1.0
         
-        super(CliffWalkingEnv, self).__init__(nS,nA,P,isd)
+        super(GridworldEnv, self).__init__(nS,nA,P,isd)
         
     def render(self,mode='human', close=False):
         self._render(mode, close)
@@ -65,28 +107,17 @@ class CliffWalkingEnv(discrete.DiscreteEnv):
     def _render(self, mode='human', close=False):
         if close:
             return
-        
-
-        #cliff location
-        self._cliff = np.zeros(self.shape, dtype = np.bool)
-        #print(self.cliff_no)
-        if self.cliff_no == 3:
-            self._cliff[0:2,6] = True
-            self.cliff_no =2
-        else: 
-            self._cliff[2:4,6] = True
-            self.cliff_no =3
+            
 
         outfile = StringIO() if mode=='ansi' else sys.stdout
+        print(self.target)
         
         for s in range(self.nS):
             position = np.unravel_index(s, self.shape)
             if self.s == s:
                 output = " x "
-            elif position == (3,11):
+            elif any(tar ==s for tar in self.target):
                 output = " T "
-            elif self._cliff[position]:
-                output = " C "
             else:
                 output = " o "
                 
